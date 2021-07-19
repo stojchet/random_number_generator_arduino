@@ -23,6 +23,7 @@ struct Button
 	long longPressDeadline;
     bool enableLongPress;
 	bool caluclateLongPressDeadline;
+	bool firstPress;
 };
 
 void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress);
@@ -33,6 +34,7 @@ struct Disp
 {
 	unsigned char place[4]; /* place[0] is the rightmost digit, place[3] the leftmost one */
 	unsigned char phase;		/* index of next place to be displayed 0-3 refer to place[], 4==disp off */
+	unsigned long anchor;
 };
 
 inline void shift_out8(unsigned char data);
@@ -74,7 +76,7 @@ inline long duration(long now, long then) {
 	return ((unsigned long)now) - then;
 }
 
-void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress)
+void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress, bool firstPress)
 {
 	b.pin = which;
 	b.state = UP;
@@ -83,6 +85,7 @@ void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress)
     b.seedOnDown = seedDown;
     b.enableLongPress = enableLongPress;
 	b.caluclateLongPressDeadline = true;
+	b.firstPress = firstPress;
 	pinMode(which, INPUT);
 }
 
@@ -229,7 +232,7 @@ void setOutputRandomNumber(Configuration& config){
 
 
 /******************** Random Number Generator ********************/
-unsigned int ceil_log2(unsigned long x)
+unsigned int log2_ceil(unsigned long x)
 {
   static const unsigned long long t[6] = {
     0xFFFFFFFF00000000ull,
@@ -254,19 +257,13 @@ unsigned int ceil_log2(unsigned long x)
   return y;
 }
 
-unsigned int log2_ceil(int n)
-{
-    return ceil_log2(n);
-}
-
-
 unsigned long rand(unsigned long n)	 /* assuming sizeof(unsigned long)==4 and random() is returning uniform random numbers from 0 to 2^L2RM (inclusive) */
 { /* for standard Arduino random() function, L2RM=31 */
 	unsigned int bin_log = log2_ceil(n);	//i.e. 2^bin_log ≥ n and it is the smallest such number
 	unsigned long r;
 	do {
 		r = random() >> (31 - bin_log);
-	} while (r >= n || r == 0);
+	} while (r >= n);
 	return r;
 }
 
@@ -284,7 +281,7 @@ int generateRandomOutput(int n, int m) {
 	int result = 0;
 	for (int i = 0; i < m; ++i) {
 		seed(random() + (micros() >> 2));
-		result += rand(n);
+		result += (rand(n) + 1);
 	}
 	return result;
 }
@@ -293,13 +290,20 @@ int generateRandomOutput(int n, int m) {
 Button normalMode, currentConfigurationMode, changeConfigurationMode;
 Configuration config = {ConfigurationModeOptions[0], 0, 1};
 int updateSeed;
+int current = -1;
+const long short_display = 100;
+const long long_display = 10000;
+bool loading = false;
+const long loadingZero = 100000;
 
 void setup() {
 	Serial.begin(9600);
-	init(normalMode, button1_pin, 0b001, 0b1000, true);
-	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false);
-	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false);
+	init(normalMode, button1_pin, 0b001, 0b1000, true, true);
+	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false, false);
+	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false, false);
 	init(display);
+	setOutputConfig(config);
+	
 }
 
 Action HandleInput(Button& btn) {
@@ -369,7 +373,10 @@ void ChangeNumberOfThrows() {
 }
 
 void printZero(){
-    display.place[0] = font[0];
+	int result[] = {11, 11, 11, 11};
+	result[display.phase] = 0;
+    updatePlaces(display, result);
+	loading = true;
 }
 
 void loop() {
@@ -389,5 +396,18 @@ void loop() {
 	}
 
 	disp_7seg(display.phase, display.place[display.phase]);
-	display.phase = (display.phase + 1) % 4;
+
+	long now = micros();
+	long curDisplay = short_display;
+	if(current == display.phase || (current == 1 && display.phase == 0)){
+		curDisplay = long_display;	
+	}
+	else if(loading){
+		curDisplay = loadingZero;
+		loading = false;
+	}
+	if(duration(now, display.anchor) > curDisplay){
+			display.anchor = now;
+			display.phase = (display.phase + 1) % 4;
+	}	
 }
