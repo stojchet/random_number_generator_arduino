@@ -54,7 +54,7 @@ struct Configuration
 };
 void setOutputConfig(Configuration& config);
 
-enum Action {NONE, PRESSED, RELEASED};
+enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
 //typedef void (*func)();
 Action HandleInput(Button& btn);
 //int HandleInput(Button& btn, func whenReleased = NULL, func whenPressed = NULL);
@@ -315,7 +315,7 @@ Action HandleInput(Button& btn) {
 			btn.pressed = false;
 			btn.caluclateLongPressDeadline = true;
 			updateSeed = btn.seedOnUp;
-            rtr_val = Action::RELEASED;
+            rtr_val = Action::RELEASE;
 		}
 		else if(!btn.enableLongPress) {
 			if(btn.caluclateLongPressDeadline) {
@@ -323,17 +323,18 @@ Action HandleInput(Button& btn) {
 				btn.longPressDeadline = micros() + t_fast;
 			}
 
-			if(duration(micros(), btn.longPressDeadline) < 0) {
-				btn.pressed = true;
-				rtr_val = Action::PRESSED;
+			if(duration(micros(), btn.longPressDeadline) > 0) {
+				rtr_val = Action::LONG_PRESS;
 			}
 			else {
-				rtr_val = Action::NONE;
+				rtr_val = Action::PRESS;
 			}
+
+			btn.pressed = true;
 		}
 		else {
 			btn.pressed = true;
-			rtr_val = Action::PRESSED;
+			rtr_val = Action::PRESS;
 		}
 
 		seed(random() + (micros() >> 2) + updateSeed);
@@ -408,16 +409,16 @@ void printZero(){
 void loop() {
 	Action normalBtnAction = HandleInput(normalMode);
 
-	if(normalBtnAction == Action::PRESSED) {
+	if(normalBtnAction == Action::LONG_PRESS) {
 		printZero();
 	}
-	else if(normalBtnAction == Action::RELEASED) {
+	else if(normalBtnAction == Action::RELEASE) {
 		RollDice();
 	}
-	else if(HandleInput(currentConfigurationMode) == Action::PRESSED) {
+	else if(HandleInput(currentConfigurationMode) == Action::PRESS) {
 		ChangeDice();
 	}
-	else if(HandleInput(changeConfigurationMode) == Action::PRESSED) {
+	else if(HandleInput(changeConfigurationMode) == Action::PRESS) {
 		ChangeNumberOfThrows();
 	}
 
