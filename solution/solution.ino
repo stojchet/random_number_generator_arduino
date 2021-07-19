@@ -20,11 +20,12 @@ struct Button
     int seedOnUp;
     int seedOnDown;
     bool pressed;
-    bool useDeadline;
-	bool caluclateDeadline;
+	long longPressDeadline;
+    bool enableLongPress;
+	bool caluclateLongPressDeadline;
 };
 
-void init(Button& b, int which, int seedDown, int seedUp, bool useDeadline);
+void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress);
 int get_pulse(Button& b);
 
 /**************** 7-Segment Display Prototype ****************/
@@ -75,15 +76,15 @@ inline long duration(long now, long then) {
 	return ((unsigned long)now) - then;
 }
 
-void init(Button& b, int which, int seedDown, int seedUp, bool useDeadline)
+void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress)
 {
 	b.pin = which;
 	b.state = UP;
     b.pressed = false;
     b.seedOnUp = seedUp;
     b.seedOnDown = seedDown;
-    b.useDeadline = useDeadline;
-	b.caluclateDeadline = true;
+    b.enableLongPress = enableLongPress;
+	b.caluclateLongPressDeadline = true;
 	pinMode(which, INPUT);
 }
 
@@ -108,7 +109,7 @@ int get_pulse(Button& b)
 		case DOWN:
 			if (on)
 			{
-				if (b.useDeadline && duration(now, b.deadline) < 0)
+				if (b.enableLongPress && duration(now, b.deadline) < 0)
 				{
 					return 0;
 				}
@@ -312,17 +313,17 @@ Action HandleInput(Button& btn) {
 
 		if(btn.pressed && !pulse_on) {
 			btn.pressed = false;
-			btn.caluclateDeadline = true;
+			btn.caluclateLongPressDeadline = true;
 			updateSeed = btn.seedOnUp;
             rtr_val = Action::RELEASED;
 		}
-		else if(!btn.useDeadline) {
-			if(btn.caluclateDeadline) {
-				btn.caluclateDeadline = false;
-				btn.deadline = micros() + t_fast;
+		else if(!btn.enableLongPress) {
+			if(btn.caluclateLongPressDeadline) {
+				btn.caluclateLongPressDeadline = false;
+				btn.longPressDeadline = micros() + t_fast;
 			}
 
-			if(duration(micros(), btn.deadline) < 0) {
+			if(duration(micros(), btn.longPressDeadline) < 0) {
 				btn.pressed = true;
 				rtr_val = Action::PRESSED;
 			}
