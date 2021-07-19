@@ -21,6 +21,7 @@ struct Button
     int seedOnDown;
     bool pressed;
     bool useDeadline;
+	bool caluclateDeadline;
 };
 
 void init(Button& b, int which, int seedDown, int seedUp, bool useDeadline);
@@ -52,8 +53,10 @@ struct Configuration
 };
 void setOutputConfig(Configuration& config);
 
-typedef void (*func)();
-int HandleInput(Button& btn, func whenReleased = NULL, func whenPressed = NULL);
+enum Action {NONE, PRESSED, RELEASED};
+//typedef void (*func)();
+Action HandleInput(Button& btn);
+//int HandleInput(Button& btn, func whenReleased = NULL, func whenPressed = NULL);
 
 /************* Random Number Generator Prototype *************/
 unsigned int log2_ceil(int n);
@@ -80,6 +83,7 @@ void init(Button& b, int which, int seedDown, int seedUp, bool useDeadline)
     b.seedOnUp = seedUp;
     b.seedOnDown = seedDown;
     b.useDeadline = useDeadline;
+	b.caluclateDeadline = true;
 	pinMode(which, INPUT);
 }
 
@@ -299,7 +303,7 @@ void setup() {
 	init(display);
 }
 
-/*Action HandleInput(Button& btn, func whenReleased = NULL, func whenPressed = NULL) {
+Action HandleInput(Button& btn) {
 	int pulse_on = get_pulse(btn);
 	Action rtr_val = Action::NONE; 
 
@@ -308,8 +312,23 @@ void setup() {
 
 		if(btn.pressed && !pulse_on) {
 			btn.pressed = false;
+			btn.caluclateDeadline = true;
 			updateSeed = btn.seedOnUp;
             rtr_val = Action::RELEASED;
+		}
+		else if(!btn.useDeadline) {
+			if(btn.caluclateDeadline) {
+				btn.caluclateDeadline = false;
+				btn.deadline = micros() + t_fast;
+			}
+
+			if(duration(micros(), btn.deadline) < 0) {
+				btn.pressed = true;
+				rtr_val = Action::PRESSED;
+			}
+			else {
+				rtr_val = Action::NONE;
+			}
 		}
 		else {
 			btn.pressed = true;
@@ -320,9 +339,9 @@ void setup() {
 	}
 
 	return rtr_val;
-}*/
+}
 
-int HandleInput(Button& btn, func whenReleased, func whenPressed) {
+/*int HandleInput(Button& btn, func whenReleased, func whenPressed) {
 	int pulse_on = get_pulse(btn);
 	int rtr_val = 0; 
 
@@ -352,9 +371,9 @@ int HandleInput(Button& btn, func whenReleased, func whenPressed) {
 	}
 
 	return rtr_val;
-}
+}*/
 
-void RandomGen() {
+void RollDice() {
 	if (config.configMode.toInt() == 0) {
 		config.randomNumber = generateRandomOutput(100, config.numberOfThrows);
 	}
@@ -386,12 +405,18 @@ void printZero(){
 }
 
 void loop() {
-	if(HandleInput(normalMode, &RandomGen, &printZero)) {
+	Action normalBtnAction = HandleInput(normalMode);
+
+	if(normalBtnAction == Action::PRESSED) {
+		printZero();
 	}
-	else if(HandleInput(currentConfigurationMode)) {
+	else if(normalBtnAction == Action::RELEASED) {
+		RollDice();
+	}
+	else if(HandleInput(currentConfigurationMode) == Action::PRESSED) {
 		ChangeDice();
 	}
-	else if(HandleInput(changeConfigurationMode)) {
+	else if(HandleInput(changeConfigurationMode) == Action::PRESSED) {
 		ChangeNumberOfThrows();
 	}
 
