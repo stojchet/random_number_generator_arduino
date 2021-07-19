@@ -55,9 +55,7 @@ struct Configuration
 void setOutputConfig(Configuration& config);
 
 enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
-//typedef void (*func)();
 Action HandleInput(Button& btn);
-//int HandleInput(Button& btn, func whenReleased = NULL, func whenPressed = NULL);
 
 /************* Random Number Generator Prototype *************/
 unsigned int log2_ceil(int n);
@@ -109,7 +107,7 @@ int get_pulse(Button& b)
 		case DOWN:
 			if (on)
 			{
-				if (b.enableLongPress && duration(now, b.deadline) < 0)
+				if (!b.enableLongPress && duration(now, b.deadline) < 0)
 				{
 					return 0;
 				}
@@ -298,9 +296,9 @@ int updateSeed;
 
 void setup() {
 	Serial.begin(9600);
-	init(normalMode, button1_pin, 0b001, 0b1000, false);
-	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, true);
-	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, true);
+	init(normalMode, button1_pin, 0b001, 0b1000, true);
+	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false);
+	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false);
 	init(display);
 }
 
@@ -317,7 +315,7 @@ Action HandleInput(Button& btn) {
 			updateSeed = btn.seedOnUp;
             rtr_val = Action::RELEASE;
 		}
-		else if(!btn.enableLongPress) {
+		else if(btn.enableLongPress) {
 			if(btn.caluclateLongPressDeadline) {
 				btn.caluclateLongPressDeadline = false;
 				btn.longPressDeadline = micros() + t_fast;
@@ -342,38 +340,6 @@ Action HandleInput(Button& btn) {
 
 	return rtr_val;
 }
-
-/*int HandleInput(Button& btn, func whenReleased, func whenPressed) {
-	int pulse_on = get_pulse(btn);
-	int rtr_val = 0; 
-
-	if(pulse_on || btn.pressed) {
-		updateSeed = btn.seedOnDown;
-
-		if(btn.pressed && !pulse_on) {
-            Serial.println(0);
-			btn.pressed = false;
-			updateSeed = btn.seedOnUp;
-            if(whenReleased != NULL){
-                whenReleased();
-            }
-		}
-        // btn.pressed && pulse_on
-        // !btn.pressed && !pulse_on
-		else {
-            Serial.println(1);
-			btn.pressed = true;
-			rtr_val = 1;
-            if(whenPressed != NULL){
-                whenPressed();
-            }
-		}
-
-		seed(random() + (micros() >> 2) + updateSeed);
-	}
-
-	return rtr_val;
-}*/
 
 void RollDice() {
 	if (config.configMode.toInt() == 0) {
