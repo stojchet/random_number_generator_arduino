@@ -8,7 +8,7 @@
 
 /* ----------------------------------------------- Prototypes ----------------------------------------------- */
 
-/********************* Buttons Prototypes ********************/
+/********************* Buttons Prototype ********************/
 enum ButtonState {UP, DEBOUNCING, DOWN};
 
 struct Button
@@ -23,7 +23,7 @@ struct Button
 	long longPressDeadline;
     bool enableLongPress;
 	bool caluclateLongPressDeadline;
-	bool firstPress;
+	bool checkPressDone;
 };
 
 void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress);
@@ -44,7 +44,7 @@ void disp_init();
 void init(Disp& d);
 void updatePlaces(Disp& d);
 
-/*********************** Configuration Mode ***********************/
+/**************** Configuration Mode Prototype ****************/
 String ConfigurationModeOptions[] = {"04", "06", "08", "10", "12", "20", "00"}; // last one is D100
 
 struct Configuration
@@ -54,16 +54,23 @@ struct Configuration
 	int numberOfThrows;
     int randomNumber;
 };
-void setOutputConfig(Configuration& config);
 
-enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
-Action HandleInput(Button& btn);
+/******************* Output Mode Prototype *******************/
+void setOutputConfig(Configuration& config);
+void setOutputRandomNumber(Configuration& config);
 
 /************* Random Number Generator Prototype *************/
 unsigned int log2_ceil(int n);
 unsigned long rand(unsigned long n);
 void seed(unsigned long x);
 int generateRandomOutput(int n, int m);
+
+enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
+Action HandleInput(Button& btn);
+void RollDice();
+void ChangeDice();
+void ChangeNumberOfThrows();
+void printZero();
 
 /* ----------------------------------------------- Implementation ----------------------------------------------- */
 
@@ -76,7 +83,7 @@ inline long duration(long now, long then) {
 	return ((unsigned long)now) - then;
 }
 
-void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress, bool firstPress)
+void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress, bool checkPressDone)
 {
 	b.pin = which;
 	b.state = UP;
@@ -85,7 +92,7 @@ void init(Button& b, int which, int seedDown, int seedUp, bool enableLongPress, 
     b.seedOnDown = seedDown;
     b.enableLongPress = enableLongPress;
 	b.caluclateLongPressDeadline = true;
-	b.firstPress = firstPress;
+	b.checkPressDone = checkPressDone;
 	pinMode(which, INPUT);
 }
 
@@ -296,16 +303,6 @@ const long long_display = 10000;
 bool loading = false;
 const long loadingZero = 100000;
 
-void setup() {
-	Serial.begin(9600);
-	init(normalMode, button1_pin, 0b001, 0b1000, true, true);
-	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false, false);
-	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false, false);
-	init(display);
-	setOutputConfig(config);
-	
-}
-
 Action HandleInput(Button& btn) {
 	int pulse_on = get_pulse(btn);
 	Action rtr_val = Action::NONE; 
@@ -379,20 +376,52 @@ void printZero(){
 	loading = true;
 }
 
+void setup() {
+	Serial.begin(9600);
+	init(normalMode, button1_pin, 0b001, 0b1000, true, true);
+	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false, false);
+	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false, false);
+	init(display);
+	setOutputConfig(config);
+	
+}
+
 void loop() {
 	Action normalBtnAction = HandleInput(normalMode);
 
 	if(normalBtnAction == Action::LONG_PRESS) {
 		printZero();
+		currentConfigurationMode.checkPressDone = false;
+		changeConfigurationMode.checkPressDone = false;
+		current = -1;
 	}
 	else if(normalBtnAction == Action::RELEASE) {
 		RollDice();
+		currentConfigurationMode.checkPressDone = false;
+		changeConfigurationMode.checkPressDone = false;
+		current = -1;
 	}
 	else if(HandleInput(currentConfigurationMode) == Action::PRESS) {
-		ChangeDice();
+		if(currentConfigurationMode.checkPressDone){
+			ChangeDice();
+		}
+		else{
+			setOutputConfig(config);
+			currentConfigurationMode.checkPressDone = true;
+		}
+		changeConfigurationMode.checkPressDone = false;
+		current = 1;
 	}
 	else if(HandleInput(changeConfigurationMode) == Action::PRESS) {
-		ChangeNumberOfThrows();
+		if(changeConfigurationMode.checkPressDone){
+			ChangeNumberOfThrows();
+		}
+		else{
+			setOutputConfig(config);
+			changeConfigurationMode.checkPressDone = true;
+		}
+		currentConfigurationMode.checkPressDone = false;
+		current = 3;
 	}
 
 	disp_7seg(display.phase, display.place[display.phase]);
