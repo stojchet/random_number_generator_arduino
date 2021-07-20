@@ -61,16 +61,19 @@ unsigned long rand(unsigned long n);
 void seed(unsigned long x);
 int generateRandomOutput(int n, int m);
 
-/******************* Output Mode Prototype *******************/
-void setOutputConfig(Configuration& config);
-void setOutputRandomNumber(Configuration& config);
+/********************  Displaying Output ********************/
+void setOutputConfig(Configuration& conf, Disp& disp);
+void setOutputRandomNumber(Configuration& conf, Disp& disp);
+void printZero(Disp& disp);
 
+/******************** Generating output from user actions ********************/
+void RollDice(Configuration& conf, Disp& disp);
+void ChangeDice(Configuration& conf, Disp& disp);
+void ChangeNumberOfThrows(Configuration& conf, Disp& disp);
+
+/******************** Input Handling ********************/
 enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
 Action HandleInput(Button& btn);
-void RollDice();
-void ChangeDice();
-void ChangeNumberOfThrows();
-void printZero();
 
 /******************* Global State Variables ******************/
 Button normalMode, currentConfigurationMode, changeConfigurationMode;
@@ -292,69 +295,69 @@ int generateRandomOutput(int n, int m)
 
 /* --------------------------------------  Processing input and generating output  -------------------------------------- */
 /********************  Displaying Output ********************/
-void setOutputConfig(Configuration& config)
+void setOutputConfig(Configuration& conf, Disp& disp)
 {
-    int result[] = {config.configMode[1] - '0', config.configMode[0] - '0', 10, config.numberOfThrows};
-    updatePlaces(display, result);
+    int result[] = {conf.configMode[1] - '0', conf.configMode[0] - '0', 10, conf.numberOfThrows};
+    updatePlaces(disp, result);
 }
 
-void setOutputRandomNumber(Configuration& config)
+void setOutputRandomNumber(Configuration& conf, Disp& disp)
 {
     int result[4];
     for(int i = 0; i < 4; ++i)
 	{
-        if(config.randomNumber == 0)
+        if(conf.randomNumber == 0)
 		{
             result[i] = 11;
         }
         else
 		{
-            result[i] = config.randomNumber % 10;
-            config.randomNumber /= 10;
+            result[i] = conf.randomNumber % 10;
+            conf.randomNumber /= 10;
         }
     }
-    updatePlaces(display, result);
+    updatePlaces(disp, result);
 }
 
-void printZero()
+void printZero(Disp& disp)
 {
 	int result[] = {11, 11, 11, 11};
-	result[display.phase] = 0;
-    updatePlaces(display, result);
+	result[disp.phase] = 0;
+    updatePlaces(disp, result);
 	loading = true;
 }
 
 /******************** Generating output from user actions ********************/
-void RollDice() {
-	if (config.configMode.toInt() == 0)
+void RollDice(Configuration& conf, Disp& disp) {
+	if (conf.configMode.toInt() == 0)
 	{
-		config.randomNumber = generateRandomOutput(100, config.numberOfThrows);
+		conf.randomNumber = generateRandomOutput(100, conf.numberOfThrows);
 	}
 	else
 	{
-		config.randomNumber = generateRandomOutput(config.configMode.toInt(), config.numberOfThrows);
+		conf.randomNumber = generateRandomOutput(conf.configMode.toInt(), conf.numberOfThrows);
 	}
 
-	setOutputRandomNumber(config);
+	setOutputRandomNumber(conf, disp);
 }
 
-void ChangeDice()
+void ChangeDice(Configuration& conf, Disp& disp)
 {
-	config.indexConfigMode = (config.indexConfigMode + 1) % (sizeof(ConfigurationModeOptions) / sizeof(String));
-	config.configMode = ConfigurationModeOptions[config.indexConfigMode];
-	setOutputConfig(config);
+	conf.indexConfigMode = (conf.indexConfigMode + 1) % (sizeof(ConfigurationModeOptions) / sizeof(String));
+	conf.configMode = ConfigurationModeOptions[conf.indexConfigMode];
+	setOutputConfig(conf, disp);
 }
 
-void ChangeNumberOfThrows()
+void ChangeNumberOfThrows(Configuration& conf, Disp& disp)
 {
-	config.numberOfThrows = (config.numberOfThrows + 1) % 10;
+	conf.numberOfThrows = (conf.numberOfThrows + 1) % 10;
 
-	if(config.numberOfThrows == 0)
+	if(conf.numberOfThrows == 0)
 	{
-		config.numberOfThrows = 1;
+		conf.numberOfThrows = 1;
 	}
 
-	setOutputConfig(config);
+	setOutputConfig(conf, disp);
 }
 
 /******************** Input Handling ********************/
@@ -413,7 +416,7 @@ void setup()
 	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false, false);
 	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false, false);
 	init(display);
-	setOutputConfig(config);
+	setOutputConfig(config, display);
 }
 
 void loop()
@@ -422,14 +425,14 @@ void loop()
 
 	if(normalBtnAction == Action::LONG_PRESS)
 	{
-		printZero();
+		printZero(display);
 		currentConfigurationMode.checkPressDone = false;
 		changeConfigurationMode.checkPressDone = false;
 		current = -1;
 	}
 	else if(normalBtnAction == Action::RELEASE)
 	{
-		RollDice();
+		RollDice(config, display);
 		currentConfigurationMode.checkPressDone = false;
 		changeConfigurationMode.checkPressDone = false;
 		current = -1;
@@ -438,11 +441,11 @@ void loop()
 	{
 		if(currentConfigurationMode.checkPressDone)
 		{
-			ChangeDice();
+			ChangeDice(config, display);
 		}
 		else
 		{
-			setOutputConfig(config);
+			setOutputConfig(config, display);
 			currentConfigurationMode.checkPressDone = true;
 		}
 
@@ -453,11 +456,11 @@ void loop()
 	{
 		if(changeConfigurationMode.checkPressDone)
 		{
-			ChangeNumberOfThrows();
+			ChangeNumberOfThrows(config, display);
 		}
 		else
 		{
-			setOutputConfig(config);
+			setOutputConfig(config, display);
 			changeConfigurationMode.checkPressDone = true;
 		}
 		currentConfigurationMode.checkPressDone = false;
