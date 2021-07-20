@@ -55,15 +55,15 @@ struct Configuration
     int randomNumber;
 };
 
-/******************* Output Mode Prototype *******************/
-void setOutputConfig(Configuration& config);
-void setOutputRandomNumber(Configuration& config);
-
 /************* Random Number Generator Prototype *************/
 unsigned int log2_ceil(int n);
 unsigned long rand(unsigned long n);
 void seed(unsigned long x);
 int generateRandomOutput(int n, int m);
+
+/******************* Output Mode Prototype *******************/
+void setOutputConfig(Configuration& config);
+void setOutputRandomNumber(Configuration& config);
 
 enum Action {NONE, PRESS, LONG_PRESS, RELEASE};
 Action HandleInput(Button& btn);
@@ -75,10 +75,10 @@ void printZero();
 /* ----------------------------------------------- Implementation ----------------------------------------------- */
 
 /************************** Buttons **************************/
-// TODO: Check whether I need the slow and fast constants added when buttons are pressed/not pressed
 const long t_debounce = 10000;
 const long t_slow = 500000;
 const long t_fast = 180000;
+
 inline long duration(long now, long then) {
 	return ((unsigned long)now) - then;
 }
@@ -216,28 +216,6 @@ void updatePlaces(Disp& d, int result[])
 	}
 }
 
-/************************** Output Mode **************************/
-
-void setOutputConfig(Configuration& config){
-    int result[] = {config.configMode[1] - '0', config.configMode[0] - '0', 10, config.numberOfThrows};
-    updatePlaces(display, result);
-}
-
-void setOutputRandomNumber(Configuration& config){
-    int result[4];
-    for(int i = 0; i < 4; ++i){
-        if(config.randomNumber == 0){
-            result[i] = 11;
-        }
-        else{
-            result[i] = config.randomNumber % 10;
-            config.randomNumber /= 10;
-        }
-    }
-    updatePlaces(display, result);
-}
-
-
 /******************** Random Number Generator ********************/
 unsigned int log2_ceil(unsigned long x)
 {
@@ -274,7 +252,8 @@ unsigned long rand(unsigned long n)	 /* assuming sizeof(unsigned long)==4 and ra
 	return r;
 }
 
-void seed(unsigned long x) {
+void seed(unsigned long x) 
+{
 	if (x != 0)
 	{
 		srandom(x);
@@ -284,25 +263,19 @@ void seed(unsigned long x) {
 	}
 }
 
-int generateRandomOutput(int n, int m) {
+int generateRandomOutput(int n, int m) 
+{
 	int result = 0;
-	for (int i = 0; i < m; ++i) {
+	for (int i = 0; i < m; ++i) 
+	{
 		seed(random() + (micros() >> 2));
 		result += (rand(n) + 1);
 	}
 	return result;
 }
 
-/****************** Global State of the Program ******************/
-Button normalMode, currentConfigurationMode, changeConfigurationMode;
-Configuration config = {ConfigurationModeOptions[0], 0, 1};
-int updateSeed;
-int current = -1;
-const long short_display = 100;
-const long long_display = 10000;
-bool loading = false;
-const long loadingZero = 100000;
-
+/* --------------------------------------  Processing input and generating output  -------------------------------------- */
+/******************** Input Handling ********************/
 Action HandleInput(Button& btn) {
 	int pulse_on = get_pulse(btn);
 	Action rtr_val = Action::NONE; 
@@ -342,6 +315,39 @@ Action HandleInput(Button& btn) {
 	return rtr_val;
 }
 
+/********************  Displaying Output ********************/
+void setOutputConfig(Configuration& config)
+{
+    int result[] = {config.configMode[1] - '0', config.configMode[0] - '0', 10, config.numberOfThrows};
+    updatePlaces(display, result);
+}
+
+void setOutputRandomNumber(Configuration& config)
+{
+    int result[4];
+    for(int i = 0; i < 4; ++i)
+	{
+        if(config.randomNumber == 0)
+		{
+            result[i] = 11;
+        }
+        else
+		{
+            result[i] = config.randomNumber % 10;
+            config.randomNumber /= 10;
+        }
+    }
+    updatePlaces(display, result);
+}
+
+void printZero(){
+	int result[] = {11, 11, 11, 11};
+	result[display.phase] = 0;
+    updatePlaces(display, result);
+	loading = true;
+}
+
+/******************** Generating output from user actions ********************/
 void RollDice() {
 	if (config.configMode.toInt() == 0) {
 		config.randomNumber = generateRandomOutput(100, config.numberOfThrows);
@@ -369,12 +375,15 @@ void ChangeNumberOfThrows() {
 	setOutputConfig(config);
 }
 
-void printZero(){
-	int result[] = {11, 11, 11, 11};
-	result[display.phase] = 0;
-    updatePlaces(display, result);
-	loading = true;
-}
+/****************** Global State of the Program ******************/
+Button normalMode, currentConfigurationMode, changeConfigurationMode;
+Configuration config = {ConfigurationModeOptions[0], 0, 1};
+int updateSeed;
+int current = -1;
+const long short_display = 100;
+const long long_display = 10000;
+bool loading = false;
+const long loadingZero = 100000;
 
 void setup() {
 	Serial.begin(9600);
