@@ -32,8 +32,8 @@ int get_pulse(Button& b);
 /**************** 7-Segment Display Prototype ****************/
 struct Disp
 {
-	unsigned char place[4]; /* place[0] is the rightmost digit, place[3] the leftmost one */
-	unsigned char phase;		/* index of next place to be displayed 0-3 refer to place[], 4==disp off */
+	unsigned char place[4];	/* place[0] is the rightmost digit, place[3] the leftmost one */
+	unsigned char phase;	/* index of next place to be displayed 0-3 refer to place[], 4==disp off */
 	unsigned long anchor;
 };
 
@@ -45,7 +45,7 @@ void init(Disp& d);
 void updatePlaces(Disp& d);
 
 /**************** Configuration Mode Prototype ****************/
-String ConfigurationModeOptions[] = {"04", "06", "08", "10", "12", "20", "00"}; // last one is D100
+String ConfigurationModeOptions[] = {"04", "06", "08", "10", "12", "20", "00"}; /* last one is D100 */
 
 struct Configuration
 {
@@ -71,6 +71,16 @@ void RollDice();
 void ChangeDice();
 void ChangeNumberOfThrows();
 void printZero();
+
+/******************* Global State Variables ******************/
+Button normalMode, currentConfigurationMode, changeConfigurationMode;
+Configuration config = {ConfigurationModeOptions[0], 0, 1};
+int updateSeed;
+int current = -1;
+const long short_display = 100;
+const long long_display = 10000;
+bool loading = false;
+const long loadingZero = 100000;
 
 /* ----------------------------------------------- Implementation ----------------------------------------------- */
 
@@ -376,15 +386,6 @@ void ChangeNumberOfThrows() {
 }
 
 /****************** Global State of the Program ******************/
-Button normalMode, currentConfigurationMode, changeConfigurationMode;
-Configuration config = {ConfigurationModeOptions[0], 0, 1};
-int updateSeed;
-int current = -1;
-const long short_display = 100;
-const long long_display = 10000;
-bool loading = false;
-const long loadingZero = 100000;
-
 void setup() {
 	Serial.begin(9600);
 	init(normalMode, button1_pin, 0b001, 0b1000, true, true);
