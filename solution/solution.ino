@@ -45,11 +45,12 @@ void init(Disp& d);
 void updatePlaces(Disp& d);
 
 /**************** Configuration Mode Prototype ****************/
-String ConfigurationModeOptions[] = {"04", "06", "08", "10", "12", "20", "00"}; /* last one is D100 */
+int configModeOptionsMapper[] = {4, 6, 8, 10, 12, 20, 0};
+enum ConfigurationModeOptions {D04 = 4, D06 = 6, D08 = 8, D10 = 10, D12 = 12, D20 = 20, D100 = 0};
 
 struct Configuration
 {
-	String configMode;
+	ConfigurationModeOptions configMode;
 	int indexConfigMode;
 	int numberOfThrows;
     int randomNumber;
@@ -77,7 +78,7 @@ Action HandleInput(Button& btn);
 
 /******************* Global State Variables ******************/
 Button normalMode, currentConfigurationMode, changeConfigurationMode;
-Configuration config = {ConfigurationModeOptions[0], 0, 1};
+Configuration config = {ConfigurationModeOptions::D04, 0, 1};
 int updateSeed;
 int current = -1;
 bool loading = false;
@@ -297,8 +298,16 @@ int generateRandomOutput(int n, int m)
 /********************  Displaying Output ********************/
 void setOutputConfig(Configuration& conf, Disp& disp)
 {
-    int result[] = {conf.configMode[1] - '0', conf.configMode[0] - '0', 10, conf.numberOfThrows};
-    updatePlaces(disp, result);
+	if(conf.configMode == 10 || conf.configMode == 12 || conf.configMode == 20)
+	{
+		int result[] = {conf.configMode % 10, conf.configMode / 10, 10, conf.numberOfThrows};
+	    updatePlaces(disp, result);
+	}
+	else
+	{
+		int result[] = {conf.configMode, 0, 10, conf.numberOfThrows};
+		updatePlaces(disp, result);
+	}
 }
 
 void setOutputRandomNumber(Configuration& conf, Disp& disp)
@@ -329,13 +338,13 @@ void printZero(Disp& disp)
 
 /******************** Generating output from user actions ********************/
 void RollDice(Configuration& conf, Disp& disp) {
-	if (conf.configMode.toInt() == 0)
+	if (conf.configMode == 0)
 	{
 		conf.randomNumber = generateRandomOutput(100, conf.numberOfThrows);
 	}
 	else
 	{
-		conf.randomNumber = generateRandomOutput(conf.configMode.toInt(), conf.numberOfThrows);
+		conf.randomNumber = generateRandomOutput(conf.configMode, conf.numberOfThrows);
 	}
 
 	setOutputRandomNumber(conf, disp);
@@ -343,8 +352,8 @@ void RollDice(Configuration& conf, Disp& disp) {
 
 void ChangeDice(Configuration& conf, Disp& disp)
 {
-	conf.indexConfigMode = (conf.indexConfigMode + 1) % (sizeof(ConfigurationModeOptions) / sizeof(String));
-	conf.configMode = ConfigurationModeOptions[conf.indexConfigMode];
+	conf.indexConfigMode = (conf.indexConfigMode + 1) % (sizeof(configModeOptionsMapper) / sizeof(int));
+	conf.configMode = (ConfigurationModeOptions)configModeOptionsMapper[conf.indexConfigMode];
 	setOutputConfig(conf, disp);
 }
 
