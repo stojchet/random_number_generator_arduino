@@ -1,5 +1,3 @@
-#define DEBUG
-
 #include "funshield.h"
 #ifndef slowDigitalWrite
 #define slowDigitalWrite(a,b) digitalWrite(a,b)
@@ -46,6 +44,7 @@ void updatePlaces(Disp& d);
 
 /**************** Configuration Mode Prototype ****************/
 int configModeOptionsMapper[] = {4, 6, 8, 10, 12, 20, 0};
+/* enum is only in use for better readability */
 enum ConfigurationModeOptions {D04 = 4, D06 = 6, D08 = 8, D10 = 10, D12 = 12, D20 = 20, D100 = 0};
 
 struct Configuration
@@ -55,6 +54,7 @@ struct Configuration
 	int numberOfThrows;
     int randomNumber;
 };
+void init(Configuration& conf);
 
 /************* Random Number Generator Prototype *************/
 unsigned int log2_ceil(int n);
@@ -78,9 +78,12 @@ Action HandleInput(Button& btn);
 
 /******************* Global State Variables ******************/
 Button normalMode, currentConfigurationMode, changeConfigurationMode;
-Configuration config = {ConfigurationModeOptions::D04, 0, 1};
+Disp display;
+Configuration config;
 int updateSeed;
-int current = -1;
+/* enum is only in use for better readability */
+enum LightDigits {ALL = -1, DICE_TYPE = 1, NUMBER_OF_THROWS = 3};
+LightDigits current = ALL;
 bool loading = false;
 const long short_display = 100;
 const long long_display = 10000;
@@ -165,7 +168,6 @@ int get_pulse(Button& b)
 }
 
 /*********************** 7-Segment Display ***********************/
-Disp display;
 /* second to last element of font is the letter d and last element is all lights off */
 const unsigned char font[] = {0b11111100, 0b01100000, 0b11011010, 0b11110010, 0b01100110,
 					0b10110110, 0b10111110, 0b11100000, 0b11111110, 0b11110110, 0b01111010, 0b00000000};
@@ -213,22 +215,20 @@ void init(Disp& d)
 	for (int i = 0; i < 4; i++) d.place[i] = font[i];
 }
 
-long power(int i)
-{
-	long res = 10;
-	for (int j = 0; j < i; ++j)
-	{
-		res *= 10;
-	}
-	return res;
-}
-
 void updatePlaces(Disp& d, int result[])
 {
 	for (int i = 0; i < 4; i++)
 	{
 		d.place[i] = font[result[i]];
 	}
+}
+
+/********************** Configuration Mode **********************/
+void init(Configuration& conf){
+	conf.configMode = ConfigurationModeOptions::D04;
+	conf.numberOfThrows = 1;
+	conf.indexConfigMode = 0;
+	conf.randomNumber = 0;
 }
 
 /******************** Random Number Generator ********************/
@@ -277,7 +277,8 @@ void seed(unsigned long x)
 	{
 		srandom(x);
 	}
-	else {
+	else
+	{
 		srandom(1);
 	}
 }
@@ -298,7 +299,7 @@ int generateRandomOutput(int n, int m)
 /********************  Displaying Output ********************/
 void setOutputConfig(Configuration& conf, Disp& disp)
 {
-	if(conf.configMode == 10 || conf.configMode == 12 || conf.configMode == 20)
+	if(conf.configMode == ConfigurationModeOptions::D10 || conf.configMode == ConfigurationModeOptions::D12 || conf.configMode == ConfigurationModeOptions::D20)
 	{
 		int result[] = {conf.configMode % 10, conf.configMode / 10, 10, conf.numberOfThrows};
 	    updatePlaces(disp, result);
@@ -337,8 +338,9 @@ void printZero(Disp& disp)
 }
 
 /******************** Generating output from user actions ********************/
-void RollDice(Configuration& conf, Disp& disp) {
-	if (conf.configMode == 0)
+void RollDice(Configuration& conf, Disp& disp)
+{
+	if (conf.configMode == ConfigurationModeOptions::D100)
 	{
 		conf.randomNumber = generateRandomOutput(100, conf.numberOfThrows);
 	}
@@ -425,6 +427,7 @@ void setup()
 	init(currentConfigurationMode, button2_pin, 0b010, 0b10000, false, false);
 	init(changeConfigurationMode, button3_pin, 0b100, 0b100000, false, false);
 	init(display);
+	init(config);
 	setOutputConfig(config, display);
 }
 
@@ -437,14 +440,14 @@ void loop()
 		printZero(display);
 		currentConfigurationMode.checkPressDone = false;
 		changeConfigurationMode.checkPressDone = false;
-		current = -1;
+		current = LightDigits::ALL;
 	}
 	else if(normalBtnAction == Action::RELEASE)
 	{
 		RollDice(config, display);
 		currentConfigurationMode.checkPressDone = false;
 		changeConfigurationMode.checkPressDone = false;
-		current = -1;
+		current = LightDigits::ALL;
 	}
 	else if(HandleInput(currentConfigurationMode) == Action::PRESS)
 	{
@@ -459,7 +462,7 @@ void loop()
 		}
 
 		changeConfigurationMode.checkPressDone = false;
-		current = 1;
+		current = LightDigits::DICE_TYPE;
 	}
 	else if(HandleInput(changeConfigurationMode) == Action::PRESS)
 	{
@@ -473,14 +476,14 @@ void loop()
 			changeConfigurationMode.checkPressDone = true;
 		}
 		currentConfigurationMode.checkPressDone = false;
-		current = 3;
+		current = LightDigits::NUMBER_OF_THROWS;
 	}
 
 	disp_7seg(display.phase, display.place[display.phase]);
 
 	long now = micros();
 	long curDisplay = short_display;
-	if(current == display.phase || (current == 1 && display.phase == 0))
+	if(current == display.phase || (current == LightDigits::DICE_TYPE && display.phase == 0))
 	{
 		curDisplay = long_display;
 	}
